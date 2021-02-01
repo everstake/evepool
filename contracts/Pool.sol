@@ -1,17 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.6.0 <0.8.0;
 
-import "openzeppelin-solidity/contracts/utils/EnumerableSet.sol";
-import "openzeppelin-solidity/contracts/math/SafeMath.sol";
-import "openzeppelin-solidity/contracts/math/Math.sol";
-import "openzeppelin-solidity/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/math/MathUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./interfaces/IDepositContract.sol";
 import "./interfaces/IPoolToken.sol";
 import "./interfaces/IPool.sol";
 
-contract Pool is Ownable, IPool {
-    using SafeMath for uint256;
-    using EnumerableSet for EnumerableSet.AddressSet;
+contract Pool is OwnableUpgradeable, IPool {
+    using SafeMathUpgradeable for uint256;
 
     event StakeAdded(address staker, uint256 value);
     event StakeCanceled(address staker, uint256 value);
@@ -26,17 +24,17 @@ contract Pool is Ownable, IPool {
     IPoolToken private _poolToken;
     IDepositContract private _depositContract;
 
-    uint256 private _poolBalance = 0;
-    uint256 private _poolFeeBalance = 0;
-    uint256 private _poolRewardsBalance = 0;
-    uint256 private _pendingBalance = 0;
+    uint256 private _poolBalance;
+    uint256 private _poolFeeBalance;
+    uint256 private _poolRewardsBalance;
+    uint256 private _pendingBalance;
     struct Staker {
         address _address;
         uint256 _amount;
     }
     mapping(uint256 => Staker) private _queue;
-    uint256 private _queueFirst = 1;
-    uint256 private _queueLast = 0;
+    uint256 private _queueFirst;
+    uint256 private _queueLast;
     mapping(address => uint256) private _queueBalances;
 
     bytes[] private _validators;
@@ -45,15 +43,25 @@ contract Pool is Ownable, IPool {
     uint256 private _poolFee; // Pool fee in bips (1/10000)
     uint256 constant FEE_DENOMINATOR = 10000;
 
-    constructor(
+    function initialize(
         IPoolToken poolToken,
         IDepositContract depositContract,
         uint256 poolFee
-    ) public {
+    ) public initializer {
+        OwnableUpgradeable.__Ownable_init();
+        
         _poolToken = poolToken;
         _depositContract = depositContract;
         _governor = msg.sender;
         _poolFee = poolFee;
+
+        _poolBalance = 0;
+        _poolFeeBalance = 0;
+        _poolRewardsBalance = 0;
+        _pendingBalance = 0;
+
+        _queueFirst = 1;
+        _queueLast = 0;
     }
 
     modifier onlyGovernor() {
@@ -138,7 +146,7 @@ contract Pool is Ownable, IPool {
 
             if (staker._amount != 0) {
                 uint256 pendingStakerAmount =
-                    Math.min(staker._amount, pendingDepositAmount);
+                    MathUpgradeable.min(staker._amount, pendingDepositAmount);
                 pendingDepositAmount = pendingDepositAmount.sub(
                     pendingStakerAmount
                 );

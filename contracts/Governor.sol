@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.6.0 <0.8.0;
 
-import "openzeppelin-solidity/contracts/utils/EnumerableSet.sol";
+import "@openzeppelin/contracts-upgradeable/utils/EnumerableSetUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/Initializable.sol";
 import "./interfaces/IPool.sol";
 
-contract Governor {
-    using EnumerableSet for EnumerableSet.AddressSet;
+contract Governor is Initializable {
+    using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
 
     event ProposalCreated(
         uint256 proposalId,
@@ -31,9 +32,9 @@ contract Governor {
         mapping(address => bool) votes;
     }
 
-    EnumerableSet.AddressSet private _oracles;
+    EnumerableSetUpgradeable.AddressSet private _oracles;
 
-    uint256 private _proposalCount = 0;
+    uint256 private _proposalCount;
     mapping(uint256 => Proposal) private _proposals;
     mapping(address => uint256) private _oracleProposals;
 
@@ -44,11 +45,13 @@ contract Governor {
         _;
     }
 
-    constructor(IPool pool) public {
+    function initialize(IPool pool) public initializer {
         _pool = pool;
 
         // Add contract creator as a default oracle
         _oracles.add(msg.sender);
+
+        _proposalCount = 0;
     }
 
     function oracleCount() external view returns (uint256) {

@@ -7,6 +7,7 @@ contract("PoolToken", async accounts => {
 
     beforeEach(async () => {
         poolToken = await PoolToken.new();
+        await poolToken.initialize();
         // Set owner to a different account
         await poolToken.transferOwnership(accounts[9]);
     });

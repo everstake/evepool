@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.6.0 <0.8.0;
 
-import "openzeppelin-solidity/contracts/access/Ownable.sol";
-import "openzeppelin-solidity/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import "./interfaces/IPoolToken.sol";
 
-contract PoolToken is Ownable, IPoolToken {
-    using SafeMath for uint256;
+contract PoolToken is OwnableUpgradeable, IPoolToken {
+    using SafeMathUpgradeable for uint256;
 
     mapping(address => uint256) private _balances;
 
@@ -25,7 +25,9 @@ contract PoolToken is Ownable, IPoolToken {
     event MinterChanged(address oldMinter, address newMinter);
     event GovernorChanged(address oldGovernor, address newGovernor);
 
-    constructor() public {
+    function initialize() public initializer {
+        OwnableUpgradeable.__Ownable_init();
+
         _name = "Everstake Pool ETH";
         _symbol = "EPETH";
         _decimals = 18;

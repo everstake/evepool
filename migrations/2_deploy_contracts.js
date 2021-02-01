@@ -2,10 +2,11 @@ const PoolToken = artifacts.require("PoolToken");
 const Pool = artifacts.require("Pool");
 const Governor = artifacts.require("Governor");
 const DepositContract = artifacts.require("DepositContract");
+const { deployProxy } = require('@openzeppelin/truffle-upgrades');
 
 module.exports = async function(deployer) {
 
-  await deployer.deploy(PoolToken);
+  await deployProxy(PoolToken, [], { deployer });
   let tokenInstance = await PoolToken.deployed();
   
   let depositAddress;
@@ -22,10 +23,10 @@ module.exports = async function(deployer) {
       depositAddress = (await DepositContract.deployed()).address;
   }
 
-  await deployer.deploy(Pool, tokenInstance.address, depositAddress, 10);
+  await deployProxy(Pool, [ tokenInstance.address, depositAddress, 10 ], { deployer });
   let poolInstance = await Pool.deployed();
 
-  await deployer.deploy(Governor, poolInstance.address);
+  await deployProxy(Governor, [ poolInstance.address ], { deployer });
   let governorInstance = await Governor.deployed();
 
   tokenInstance.transferOwnership(poolInstance.address);

@@ -15,8 +15,10 @@ contract("Pool", async accounts => {
 
     beforeEach(async () => {
         poolToken = await PoolToken.new();
+        await poolToken.initialize();
         depositContract = await DepositContract.new();
-        pool = await Pool.new(poolToken.address, depositContract.address, C.FEE_DEFAULT);
+        pool = await Pool.new();
+        await pool.initialize(poolToken.address, depositContract.address, C.FEE_DEFAULT);
 
         // Set PoolToken owner to the Pool
         await poolToken.transferOwnership(pool.address);
