@@ -1,5 +1,5 @@
 {
-  "name": "eth2-pool",
+  "name": "eve-pool",
   "version": "1.0.0",
   "description": "",
   "main": "truffle-config.js",
@@ -7,11 +7,13 @@
     "test": "test"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "compile": "truffle compile --all",
+    "migrate": "truffle compile --all && truffle migrate",
+    "test": "truffle test ./test/pool.* && truffle test ./test/pool_token* && truffle test ./test/governor*"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "@openzeppelin/contracts-upgradeable": "3.3.0",
     "@openzeppelin/truffle-upgrades": "^1.5.0",

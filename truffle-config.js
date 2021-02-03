@@ -26,7 +26,8 @@ module.exports = {
       provider: () => {
         return new HDWalletProvider({
           privateKeys: [process.env.ROPSTEN_PK], 
-          providerOrUrl: 'https://ropsten.infura.io/v3/' + process.env.ROPSTEN_INFURA_KEY});
+          providerOrUrl: 'https://ropsten.infura.io/v3/' + process.env.ROPSTEN_INFURA_KEY
+          });
       },
       network_id: '3', // eslint-disable-line camelcase
       gas: 4465030,

@@ -15,9 +15,9 @@ contract('Pool Token (proxy)', async accounts => {
 
     it('success: initialization', async () => {
         let name = await poolToken.name.call();
-        assert.equal(name, "Everstake Pool ETH");
+        assert.equal(name, "Eveth");
         let symbol = await poolToken.symbol.call();
-        assert.equal(symbol, "EPETH");
+        assert.equal(symbol, "EVETH");
         let decimals = await poolToken.decimals.call();
         assert.equal(decimals, 18);
         let owner = await poolToken.owner.call();

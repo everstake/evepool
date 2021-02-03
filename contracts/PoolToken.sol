@@ -28,8 +28,8 @@ contract PoolToken is OwnableUpgradeable, IPoolToken {
     function initialize() public initializer {
         OwnableUpgradeable.__Ownable_init();
 
-        _name = "Everstake Pool ETH";
-        _symbol = "EPETH";
+        _name = "Eveth";
+        _symbol = "EVETH";
         _decimals = 18;
         _ratioNumerator = 1;
         _ratioDenominator = 1;
