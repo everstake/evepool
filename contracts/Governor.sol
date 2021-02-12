@@ -63,6 +63,10 @@ contract Governor is Initializable {
         return _oracles.at(index);
     }
 
+    function isOracle(address value) external view returns (bool) {
+        return _oracles.contains(value);
+    }
+
     function propose(
         ProposalType proposalType,
         bytes32 arg
