@@ -4,16 +4,19 @@ pragma solidity >=0.6.0 <0.8.0;
 import "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/math/MathUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/EnumerableSetUpgradeable.sol";
 import "./interfaces/IDepositContract.sol";
 import "./interfaces/IPoolToken.sol";
 import "./interfaces/IPool.sol";
 
 contract Pool is OwnableUpgradeable, IPool {
     using SafeMathUpgradeable for uint256;
+    using EnumerableSetUpgradeable for EnumerableSetUpgradeable.UintSet;
 
     event StakeAdded(address staker, uint256 value);
     event StakeCanceled(address staker, uint256 value);
-    event StakeDeposited(address staker, uint256 value, bytes validator);
+    event StakeDeposited(bytes validator);
+    event TokensClaimed(address staker, uint256 value, bytes validator);
     event GovernorChanged(address oldGovernor, address newGovernor);
     event RewardsUpdated(uint256 oldRewards, uint256 newRewards);
     event FeeUpdated(uint256 oldFee, uint256 newFee);
@@ -32,10 +35,13 @@ contract Pool is OwnableUpgradeable, IPool {
         address _address;
         uint256 _amount;
     }
-    mapping(uint256 => Staker) private _queue;
-    uint256 private _queueFirst;
-    uint256 private _queueLast;
-    mapping(address => uint256) private _queueBalances;
+
+    mapping(uint256 => mapping(address => uint256)) private _slots;
+    uint256 private _slotCurrent;
+    uint256 private _slotDeposited;
+    uint256 private _slotPendingBalance;
+    mapping(address => uint256) private _stakerBalances;
+    mapping(address => EnumerableSetUpgradeable.UintSet) private _stakerSlots;
 
     bytes[] private _validators;
     address private _governor;
@@ -60,8 +66,9 @@ contract Pool is OwnableUpgradeable, IPool {
         _poolRewardsBalance = 0;
         _pendingBalance = 0;
 
-        _queueFirst = 1;
-        _queueLast = 0;
+        _slotCurrent = 1;
+        _slotDeposited = 0;
+        _slotPendingBalance = 0;
     }
 
     modifier onlyGovernor() {
@@ -70,7 +77,7 @@ contract Pool is OwnableUpgradeable, IPool {
     }
 
     function pendingBalanceOf(address account) public view returns (uint256) {
-        return _queueBalances[account];
+        return _stakerBalances[account];
     }
 
     function pendingBalance() public view returns (uint256) {
@@ -94,37 +101,96 @@ contract Pool is OwnableUpgradeable, IPool {
     }
 
     function stake() public payable {
+        require(msg.value >= MIN_STAKE, "Stake too small");
         _stake(msg.sender, msg.value);
     }
 
     function _stake(address staker, uint256 value) private {
-        require(value >= MIN_STAKE, "Stake too small");
+        if (value == 0)
+            return;
+        
+        // Split large stakes into several slots
+        if (_slotPendingBalance.add(value) > BEACON_AMOUNT) {
+            uint256 step1 = BEACON_AMOUNT.sub(_slotPendingBalance);
+            _stake(staker, step1);
+            _stake(staker, value.sub(step1));
+            return;
+        }
 
         _pendingBalance = _pendingBalance.add(value);
 
-        _queueBalances[staker] = _queueBalances[staker].add(value);
-        _queueLast += 1;
-        _queue[_queueLast] = Staker({_address: staker, _amount: value});
+        _stakerBalances[staker] = _stakerBalances[staker].add(value);
+
+        _slots[_slotCurrent][staker] = _slots[_slotCurrent][staker].add(value);
+        _stakerSlots[staker].add(_slotCurrent);
+
+        _slotPendingBalance = _slotPendingBalance.add(value);
+        if (_slotPendingBalance == BEACON_AMOUNT) {
+            _slotCurrent += 1;
+            _slotPendingBalance = 0;
+        }
 
         emit StakeAdded(staker, value);
     }
 
+    function unstakableBalance(address account) public view returns (uint256) {
+        return _unstakableBalance(account);
+    }
+
+    function claimableBalance(address account) public view returns (uint256) {
+        return _claimableBalance(account);
+    }
+
+    function _unstakableBalance(address account) private view returns (uint256) {
+        return _slots[_slotCurrent][account];
+    }
+
+    function _claimableBalance(address account) private view returns (uint256) {
+        uint256 redeemable = 0;
+        uint256 index = _stakerSlots[account].length();
+        while (index > 0) {
+            index -= 1;
+            uint256 slot = _stakerSlots[account].at(index);
+            if (slot <= _slotDeposited) {
+                redeemable = redeemable.add(_slots[slot][account]);
+            }
+        }
+        return redeemable;
+    }
+
     function unstake() public {
-        uint256 pendingAmount = _queueBalances[msg.sender];
+        uint256 pendingAmount = _unstakableBalance(msg.sender);
         require(pendingAmount > 0, "Nothing to unstake");
 
         _pendingBalance = _pendingBalance.sub(pendingAmount);
-        _queueBalances[msg.sender] = 0;
+        _stakerBalances[msg.sender] = _stakerBalances[msg.sender].sub(pendingAmount);
 
-        for (uint256 i = _queueFirst; i <= _queueLast; i++) {
-            if (_queue[i]._address == msg.sender) {
-                _queue[i]._amount = 0;
-            }
-        }
+        _slots[_slotCurrent][msg.sender] = 0;
 
         bool success = msg.sender.send(pendingAmount);
         require(success, "Transfer failed");
         emit StakeCanceled(msg.sender, pendingAmount);
+    }
+
+    function claim() public {
+        uint256 index = _stakerSlots[msg.sender].length();
+        uint256 mintAmount = 0;
+        while (index > 0) {
+            index -= 1;
+            uint256 slot = _stakerSlots[msg.sender].at(index);
+            if (slot <= _slotDeposited) {
+                uint256 slotAmount = _slots[slot][msg.sender];
+                mintAmount = mintAmount.add(slotAmount);
+                _stakerBalances[msg.sender] = _stakerBalances[msg.sender].sub(slotAmount);
+                _slots[slot][msg.sender] = 0;
+                _stakerSlots[msg.sender].remove(slot);
+
+                emit TokensClaimed(msg.sender, slotAmount, _validators[slot - 1]); // -1 because slots are 1-based and _validators array is 0-based
+            }
+        }
+        if (mintAmount != 0) {
+            _poolToken.mint(msg.sender, mintAmount);
+        }
     }
 
     function deposit(
@@ -138,39 +204,9 @@ contract Pool is OwnableUpgradeable, IPool {
         _pendingBalance = _pendingBalance.sub(BEACON_AMOUNT);
         _poolBalance = _poolBalance.add(BEACON_AMOUNT);
 
-        // Remove pending balance for individual stakers
-        uint256 pendingDepositAmount = BEACON_AMOUNT;
+        _slotDeposited += 1;
 
-        while (_queueLast >= _queueFirst && pendingDepositAmount > 0) {
-            Staker storage staker = _queue[_queueFirst];
-
-            if (staker._amount != 0) {
-                uint256 pendingStakerAmount =
-                    MathUpgradeable.min(staker._amount, pendingDepositAmount);
-                pendingDepositAmount = pendingDepositAmount.sub(
-                    pendingStakerAmount
-                );
-
-                _queueBalances[staker._address] = _queueBalances[
-                    staker._address
-                ]
-                    .sub(pendingStakerAmount);
-                staker._amount = staker._amount.sub(pendingStakerAmount);
-
-                _poolToken.mint(staker._address, pendingStakerAmount);
-                emit StakeDeposited(
-                    staker._address,
-                    pendingStakerAmount,
-                    pubkey
-                );
-            }
-
-            if (staker._amount == 0) {
-                delete _queue[_queueFirst];
-                _queueFirst += 1;
-            }
-        }
-        require(pendingDepositAmount == 0, "Not enough balance in queue");
+        emit StakeDeposited(pubkey);
 
         _depositContract.deposit{value: BEACON_AMOUNT}(
             pubkey,

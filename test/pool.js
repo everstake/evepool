@@ -134,9 +134,9 @@ contract("Pool", async accounts => {
             DEPOSIT_DATA[0].SIGNATURE, 
             DEPOSIT_DATA[0].ROOT);
 
-        // Pending balance should become zero
-        pendingBalance = await pool.pendingBalanceOf.call(accounts[2]);
-        assert.equal(pendingBalance, 0);
+        // Unstakable balance should be zero
+        let unstakableBalance = await pool.unstakableBalance.call(accounts[2]);
+        assert.equal(unstakableBalance, 0);
 
         // Check saved validators
         assert.equal(await pool.getValidatorCount.call(), 1);
@@ -144,8 +144,19 @@ contract("Pool", async accounts => {
 
         // Checking events
         truffleAssert.eventEmitted(tx, 'StakeDeposited', (ev) => {
-            return ev.staker == accounts[2] && ev.value.eq(C.BN_BEACON) && ev.validator == DEPOSIT_DATA[0].PUBKEY;
+            return ev.validator == DEPOSIT_DATA[0].PUBKEY;
         });
+
+        // Claimable balance should be the full stake
+        claimableBalance = await pool.claimableBalance.call(accounts[2]);
+        assert.equal(claimableBalance.toString(), C.BN_BEACON);
+
+        // Claim tokens
+        await pool.claim({from: accounts[2]});
+
+        // Claimable balance should become zero
+        claimableBalance = await pool.claimableBalance.call(accounts[2]);
+        assert.equal(claimableBalance, 0);
 
         // User should receive amount of tokens equal to deposited ETH
         let tokenBalance = await poolToken.balanceOf.call(accounts[2]);
@@ -164,14 +175,17 @@ contract("Pool", async accounts => {
             DEPOSIT_DATA[2].SIGNATURE, 
             DEPOSIT_DATA[2].ROOT);
 
-        // There should be a small pending balance
-        pendingBalance = await pool.pendingBalanceOf.call(accounts[0]);
-        assert.equal(pendingBalance, C.BN_BEACON_PLUS.sub(C.BN_BEACON).toString());
+        // There should be a small unstakable balance
+        unstakableBalance = await pool.unstakableBalance.call(accounts[0]);
+        assert.equal(unstakableBalance, C.BN_BEACON_PLUS.sub(C.BN_BEACON).toString());
 
         // Checking events
         truffleAssert.eventEmitted(tx, 'StakeDeposited', (ev) => {
-            return ev.staker == accounts[0] && ev.value.eq(C.BN_BEACON) && ev.validator == DEPOSIT_DATA[2].PUBKEY;
+            return ev.validator == DEPOSIT_DATA[2].PUBKEY;
         });
+
+        // Claim tokens
+        await pool.claim({from: accounts[0]});
 
         // User should receive amount of tokens equal to deposited ETH
         let tokenBalance = await poolToken.balanceOf.call(accounts[0]);
@@ -190,6 +204,11 @@ contract("Pool", async accounts => {
         let totalPending = await pool.pendingBalance.call();
         assert.equal(totalPending.toString(), USER_STAKE.muln(3));
 
+        // Check unstakable balance
+        assert.equal((await pool.unstakableBalance.call(accounts[5])).toString(), 0);
+        assert.equal((await pool.unstakableBalance.call(accounts[6])).toString(), 0);
+        assert.equal((await pool.unstakableBalance.call(accounts[7])).toString(), C.BN_BEACON.muln(2).divn(5));
+
         // And deposit
         let tx1 = await pool.deposit(
             DEPOSIT_DATA[4].PUBKEY, 
@@ -204,22 +223,34 @@ contract("Pool", async accounts => {
         // Check total pool balance after the deposit
         let poolBalance = await pool.balance.call();
         assert.equal(poolBalance.toString(), C.BN_BEACON);
-
-        // Check pending user balances
-        assert.equal(await pool.pendingBalanceOf.call(accounts[5]), 0);
-        assert.equal(await pool.pendingBalanceOf.call(accounts[6]), USER_STAKE.divn(4).muln(3).toString());
-        assert.equal(await pool.pendingBalanceOf.call(accounts[7]), USER_STAKE.toString());
         
         // Check events
         truffleAssert.eventEmitted(tx1, 'StakeDeposited', (ev) => {
-            return ev.staker == accounts[5] && ev.value.eq(USER_STAKE) && ev.validator == DEPOSIT_DATA[4].PUBKEY;
+            return ev.validator == DEPOSIT_DATA[4].PUBKEY;
         });
-        truffleAssert.eventEmitted(tx1, 'StakeDeposited', (ev) => {
-            return ev.staker == accounts[6] && ev.value.eq(C.BN_BEACON.sub(USER_STAKE)) && ev.validator == DEPOSIT_DATA[4].PUBKEY;
+
+        // Check user token balances
+        assert.equal(await poolToken.balanceOf.call(accounts[5]), 0);
+        assert.equal(await poolToken.balanceOf.call(accounts[6]), 0);
+        assert.equal(await poolToken.balanceOf.call(accounts[7]), 0);
+
+        // Claim tokens
+        let txClaim = await pool.claim({from: accounts[5]});
+        truffleAssert.eventEmitted(txClaim, 'TokensClaimed', (ev) => {
+            return ev.staker == accounts[5] && ev.value == USER_STAKE.toString() && ev.validator == DEPOSIT_DATA[4].PUBKEY;
         });
-        truffleAssert.eventNotEmitted(tx1, 'StakeDeposited', (ev) => {
-            return ev.staker == accounts[7];
+
+        // Check user token balances
+        assert.equal(await poolToken.balanceOf.call(accounts[5]), USER_STAKE.toString());
+        assert.equal(await poolToken.balanceOf.call(accounts[6]), 0);
+        assert.equal(await poolToken.balanceOf.call(accounts[7]), 0);
+
+        txClaim = await pool.claim({from: accounts[6]});
+        truffleAssert.eventEmitted(txClaim, 'TokensClaimed', (ev) => {
+            return ev.staker == accounts[6] && ev.value == USER_STAKE.divn(4).toString() && ev.validator == DEPOSIT_DATA[4].PUBKEY;
         });
+        txClaim = await pool.claim({from: accounts[7]});
+        truffleAssert.eventNotEmitted(txClaim, 'TokensClaimed');
 
         // Check user token balances
         assert.equal(await poolToken.balanceOf.call(accounts[5]), USER_STAKE.toString());
@@ -246,24 +277,36 @@ contract("Pool", async accounts => {
         poolBalance = await pool.balance.call();
         assert.equal(poolBalance.toString(), C.BN_BEACON.add(C.BN_BEACON));
 
-        // Check pending user balances
-        assert.equal(await pool.pendingBalanceOf.call(accounts[5]), 0);
-        assert.equal(await pool.pendingBalanceOf.call(accounts[6]), 0);
-        assert.equal(await pool.pendingBalanceOf.call(accounts[7]), USER_STAKE.divn(4).muln(2).toString());
-
         // Check events
-        truffleAssert.eventNotEmitted(tx2, 'StakeDeposited', (ev) => {
-            return ev.staker == accounts[5];
-        });
         truffleAssert.eventEmitted(tx2, 'StakeDeposited', (ev) => {
-            return ev.staker == accounts[6] && ev.value.eq(USER_STAKE.divn(4).muln(3)) && ev.validator == DEPOSIT_DATA[3].PUBKEY;
-        });
-        truffleAssert.eventEmitted(tx2, 'StakeDeposited', (ev) => {
-            return ev.staker == accounts[7] && ev.value.eq(USER_STAKE.divn(4).muln(2)) && ev.validator == DEPOSIT_DATA[3].PUBKEY;
+            return ev.validator == DEPOSIT_DATA[3].PUBKEY;
         });
 
         // Check user token balances
         assert.equal(await poolToken.balanceOf.call(accounts[5]), USER_STAKE.toString());
+        assert.equal(await poolToken.balanceOf.call(accounts[6]), USER_STAKE.divn(4).toString());
+        assert.equal(await poolToken.balanceOf.call(accounts[7]), 0);
+
+        // Claim tokens
+        txClaim = await pool.claim({from: accounts[5]});
+        truffleAssert.eventNotEmitted(txClaim, 'TokensClaimed');
+        txClaim = await pool.claim({from: accounts[6]});
+        truffleAssert.eventEmitted(txClaim, 'TokensClaimed', (ev) => {
+            return ev.staker == accounts[6] && ev.value == USER_STAKE.divn(4).muln(3).toString() && ev.validator == DEPOSIT_DATA[3].PUBKEY;
+        });
+        txClaim = await pool.claim({from: accounts[7]});
+        truffleAssert.eventEmitted(txClaim, 'TokensClaimed', (ev) => {
+            return ev.staker == accounts[7] && ev.value == USER_STAKE.divn(4).muln(2).toString() && ev.validator == DEPOSIT_DATA[3].PUBKEY;
+        });
+
+        // Check user token balances
+        assert.equal(await poolToken.balanceOf.call(accounts[5]), USER_STAKE.toString());
+        assert.equal(await poolToken.balanceOf.call(accounts[6]), USER_STAKE.toString());
+        assert.equal(await poolToken.balanceOf.call(accounts[7]), USER_STAKE.divn(4).muln(2).toString());
+
+        // Claim again no new tokens
+        await pool.claim({from: accounts[6]});
+        await pool.claim({from: accounts[7]});
         assert.equal(await poolToken.balanceOf.call(accounts[6]), USER_STAKE.toString());
         assert.equal(await poolToken.balanceOf.call(accounts[7]), USER_STAKE.divn(4).muln(2).toString());
     });
@@ -319,6 +362,9 @@ contract("Pool", async accounts => {
             DEPOSIT_DATA[0].SIGNATURE, 
             DEPOSIT_DATA[0].ROOT);
 
+        // Claim tokens
+        await pool.claim({from: STAKER_1});
+
         // Check token balance before
         assert.equal(await poolToken.balanceOf.call(STAKER_1), BALANCE_1_0.toString());
         assert.equal(await pool.rewards.call(), POOL_REWARDS_0.toString());
@@ -339,6 +385,11 @@ contract("Pool", async accounts => {
             DEPOSIT_DATA[3].WITHDRAW, 
             DEPOSIT_DATA[3].SIGNATURE, 
             DEPOSIT_DATA[3].ROOT);
+
+        // Claim tokens
+        await pool.claim({from: STAKER_1}); // Claim again, should make no difference
+        await pool.claim({from: STAKER_2});
+
         utils.assertAlmostEqual(await poolToken.balanceOf.call(STAKER_2), BALANCE_2_1);
         
         // Update rewards

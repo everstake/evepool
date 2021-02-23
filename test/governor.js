@@ -185,6 +185,9 @@ contract("Governor", async accounts => {
             DEPOSIT_DATA[0].WITHDRAW, 
             DEPOSIT_DATA[0].SIGNATURE, 
             DEPOSIT_DATA[0].ROOT);
+
+        // Claim tokens
+        await pool.claim({from: accounts[2]});
             
         const REWARDS = C.BN_ETH.muln(2);
         const REWARDS32 = utils.bnToBytes32(REWARDS);
