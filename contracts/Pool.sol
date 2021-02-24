@@ -21,8 +21,8 @@ contract Pool is OwnableUpgradeable, IPool {
     event RewardsUpdated(uint256 oldRewards, uint256 newRewards);
     event FeeUpdated(uint256 oldFee, uint256 newFee);
 
-    uint256 constant BEACON_AMOUNT = 32 ether;
-    uint256 constant MIN_STAKE = 1 ether / 100;
+    uint256 private constant BEACON_AMOUNT = 32 ether;
+    uint256 private constant MIN_STAKE = 1 ether / 100;
 
     IPoolToken private _poolToken;
     IDepositContract private _depositContract;
@@ -76,31 +76,31 @@ contract Pool is OwnableUpgradeable, IPool {
         _;
     }
 
-    function pendingBalanceOf(address account) public view returns (uint256) {
+    function pendingBalanceOf(address account) external view returns (uint256) {
         return _stakerBalances[account];
     }
 
-    function pendingBalance() public view returns (uint256) {
+    function pendingBalance() external view returns (uint256) {
         return _pendingBalance;
     }
 
-    function balance() public view returns (uint256) {
+    function balance() external view returns (uint256) {
         return _poolBalance;
     }
 
-    function feeBalance() public view returns (uint256) {
+    function feeBalance() external view returns (uint256) {
         return _poolFeeBalance;
     }
 
-    function rewards() public view returns (uint256) {
+    function rewards() external view returns (uint256) {
         return _poolRewardsBalance;
     }
 
-    function fee() public view returns (uint256) {
+    function fee() external view returns (uint256) {
         return _poolFee;
     }
 
-    function stake() public payable {
+    function stake() external payable {
         require(msg.value >= MIN_STAKE, "Stake too small");
         _stake(msg.sender, msg.value);
     }
@@ -133,11 +133,11 @@ contract Pool is OwnableUpgradeable, IPool {
         emit StakeAdded(staker, value);
     }
 
-    function unstakableBalance(address account) public view returns (uint256) {
+    function unstakableBalance(address account) external view returns (uint256) {
         return _unstakableBalance(account);
     }
 
-    function claimableBalance(address account) public view returns (uint256) {
+    function claimableBalance(address account) external view returns (uint256) {
         return _claimableBalance(account);
     }
 
@@ -158,7 +158,7 @@ contract Pool is OwnableUpgradeable, IPool {
         return redeemable;
     }
 
-    function unstake() public {
+    function unstake() external {
         uint256 pendingAmount = _unstakableBalance(msg.sender);
         require(pendingAmount > 0, "Nothing to unstake");
 
@@ -172,7 +172,7 @@ contract Pool is OwnableUpgradeable, IPool {
         emit StakeCanceled(msg.sender, pendingAmount);
     }
 
-    function claim() public {
+    function claim() external {
         uint256 index = _stakerSlots[msg.sender].length();
         uint256 mintAmount = 0;
         while (index > 0) {
@@ -218,20 +218,20 @@ contract Pool is OwnableUpgradeable, IPool {
         _validators.push(pubkey);
     }
 
-    function getValidatorCount() public view returns (uint256) {
+    function getValidatorCount() external view returns (uint256) {
         return _validators.length;
     }
 
-    function getValidator(uint256 index) public view returns (bytes memory) {
+    function getValidator(uint256 index) external view returns (bytes memory) {
         require(index < _validators.length, "Invalid index");
         return _validators[index];
     }
 
-    function governor() public view returns (address) {
+    function governor() external view returns (address) {
         return _governor;
     }
 
-    function setGovernor(address newGovernor) public virtual onlyGovernor {
+    function setGovernor(address newGovernor) external virtual onlyGovernor {
         emit GovernorChanged(_governor, newGovernor);
         _governor = newGovernor;
     }

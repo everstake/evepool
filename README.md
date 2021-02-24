@@ -16,18 +16,18 @@ npm install
 ### Compile contracts
 
 ```
-npm compile
+npm run compile
 ```
 
 ### Running tests
 
 ```
-npm test
+npm run test
 ```
 
 ### Deploying Contracts
 ```
-npm migrate
+npm run migrate
 ```
 
 ## Licence
