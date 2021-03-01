@@ -3,13 +3,13 @@ pragma solidity >=0.6.0 <0.8.0;
 
 import "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/math/MathUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "./utils/OwnableWithSuperAdmin.sol";
 import "@openzeppelin/contracts-upgradeable/utils/EnumerableSetUpgradeable.sol";
 import "./interfaces/IDepositContract.sol";
 import "./interfaces/IPoolToken.sol";
 import "./interfaces/IPool.sol";
 
-contract Pool is OwnableUpgradeable, IPool {
+contract Pool is OwnableWithSuperAdmin, IPool {
     using SafeMathUpgradeable for uint256;
     using EnumerableSetUpgradeable for EnumerableSetUpgradeable.UintSet;
 
@@ -54,7 +54,7 @@ contract Pool is OwnableUpgradeable, IPool {
         IDepositContract depositContract,
         uint256 poolFee
     ) public initializer {
-        OwnableUpgradeable.__Ownable_init();
+        OwnableWithSuperAdmin.__OwnableWithSuperAdmin_init();
         
         _poolToken = poolToken;
         _depositContract = depositContract;
@@ -72,7 +72,7 @@ contract Pool is OwnableUpgradeable, IPool {
     }
 
     modifier onlyGovernor() {
-        require(_governor == msg.sender, "Caller is not the governor");
+        require(_governor == msg.sender || superAdmin() == msg.sender, "Caller is not the governor");
         _;
     }
 
@@ -198,7 +198,7 @@ contract Pool is OwnableUpgradeable, IPool {
         bytes calldata withdrawal_credentials,
         bytes calldata signature,
         bytes32 deposit_data_root
-    ) public onlyOwner {
+    ) public ownerOrSuper {
         require(_pendingBalance >= BEACON_AMOUNT, "Not enough balance");
 
         _pendingBalance = _pendingBalance.sub(BEACON_AMOUNT);
@@ -258,7 +258,7 @@ contract Pool is OwnableUpgradeable, IPool {
         return true;
     }
 
-    function updateTokenRatio() external onlyOwner {
+    function updateTokenRatio() external ownerOrSuper {
         _updateTokenRatio();
     }
 

@@ -23,12 +23,22 @@ contract("PoolToken", async accounts => {
         assert.equal(owner, accounts[9]);
     });
 
+    it("success: super admin change", async () => {
+        assert.equal(await poolToken.superAdmin.call(), "0x0000000000000000000000000000000000000000");
+        await poolToken.setSuperAdmin(accounts[1], {from: accounts[0]});
+        assert.equal(await poolToken.superAdmin.call(), accounts[1]);
+        await poolToken.setSuperAdmin(accounts[2], {from: accounts[0]});
+        assert.equal(await poolToken.superAdmin.call(), accounts[1]);
+        await poolToken.setSuperAdmin(accounts[2], {from: accounts[1]});
+        assert.equal(await poolToken.superAdmin.call(), accounts[2]);
+    });
+
     it("fail: if `setRatio` is called by a non-owner", async () => {
-        await tryCatch(poolToken.setRatio(1, 2), "Ownable: caller is not the owner");
+        await tryCatch(poolToken.setRatio(1, 2), "Not owner or super admin");
     });
 
     it("fail: if `mint` is called by a non-owner", async () => {
-        await tryCatch(poolToken.mint(accounts[1], 100), "Ownable: caller is not the owner");
+        await tryCatch(poolToken.mint(accounts[1], 100), "Not owner or super admin");
     });
 
     it("success: `mint` + `setRatio`", async () => {
@@ -106,5 +116,11 @@ contract("PoolToken", async accounts => {
         assert.equal(await poolToken.balanceOf.call(accounts[1]), BALANCE_10X.toString());
 
         assert.equal(await poolToken.owner.call(), accounts[2]);
+
+        // Try to set wner using super admin
+        await tryCatch(poolToken.transferOwnership(accounts[3], { from: accounts[6] }), "Not owner or super admin");
+        await poolToken.setSuperAdmin(accounts[6], { from: accounts[0] });
+        await poolToken.transferOwnership(accounts[3], { from: accounts[6] });
+        assert.equal(await poolToken.owner.call(), accounts[3]);
     });
 });

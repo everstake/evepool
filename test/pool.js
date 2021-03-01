@@ -34,6 +34,16 @@ contract("Pool", async accounts => {
         assert.equal(governor, accounts[9]);
     });
 
+    it("success: super admin change", async () => {
+        assert.equal(await pool.superAdmin.call(), "0x0000000000000000000000000000000000000000");
+        await pool.setSuperAdmin(accounts[1], {from: accounts[0]});
+        assert.equal(await pool.superAdmin.call(), accounts[1]);
+        await pool.setSuperAdmin(accounts[2], {from: accounts[0]});
+        assert.equal(await pool.superAdmin.call(), accounts[1]);
+        await pool.setSuperAdmin(accounts[2], {from: accounts[1]});
+        assert.equal(await pool.superAdmin.call(), accounts[2]);
+    });
+
     it("fail: `getValidator` access non existing validator", async () => {
         await utils.tryCatch(pool.getValidator.call(1), "Invalid index");
     });
@@ -331,6 +341,11 @@ contract("Pool", async accounts => {
         truffleAssert.eventEmitted(tx, 'GovernorChanged', (ev) => {
             return ev.oldGovernor == accounts[9] && ev.newGovernor == accounts[5];
         });
+
+        // Try to set governor using super admin
+        await pool.setSuperAdmin(accounts[6], { from: accounts[0] });
+        await pool.setGovernor(accounts[4], { from: accounts[6] });
+        assert.equal(await pool.governor.call(), accounts[4]);
     });
 
     it("fail: `setRewards` from non-governor", async () => {

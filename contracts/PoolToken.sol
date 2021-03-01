@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.6.0 <0.8.0;
 
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "./utils/OwnableWithSuperAdmin.sol";
 import "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import "./interfaces/IPoolToken.sol";
 
-contract PoolToken is OwnableUpgradeable, IPoolToken {
+contract PoolToken is OwnableWithSuperAdmin, IPoolToken {
     using SafeMathUpgradeable for uint256;
 
     mapping(address => uint256) private _balances;
@@ -26,7 +26,7 @@ contract PoolToken is OwnableUpgradeable, IPoolToken {
     event GovernorChanged(address oldGovernor, address newGovernor);
 
     function initialize() public initializer {
-        OwnableUpgradeable.__Ownable_init();
+        OwnableWithSuperAdmin.__OwnableWithSuperAdmin_init();
 
         _name = "Eveth";
         _symbol = "EVETH";
@@ -46,7 +46,7 @@ contract PoolToken is OwnableUpgradeable, IPoolToken {
     function setRatio(uint256 numerator, uint256 denominator)
         external
         override
-        onlyOwner
+        ownerOrSuper
         returns (bool)
     {
         require(numerator != 0 && denominator != 0, "Ratio cannot be 0");
@@ -59,7 +59,7 @@ contract PoolToken is OwnableUpgradeable, IPoolToken {
     function mint(address account, uint256 amount)
         external
         override
-        onlyOwner
+        ownerOrSuper
         returns (bool)
     {
         amount = _ratioIn(amount);

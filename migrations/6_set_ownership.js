@@ -1,7 +1,6 @@
 const PoolToken = artifacts.require("PoolToken");
 const Pool = artifacts.require("Pool");
 const Governor = artifacts.require("Governor");
-const { deployProxy } = require('@openzeppelin/truffle-upgrades');
 
 module.exports = async function(deployer) {
 
@@ -9,6 +8,10 @@ module.exports = async function(deployer) {
   let poolInstance = await Pool.deployed();
   let governorInstance = await Governor.deployed();
 
-  tokenInstance.transferOwnership(poolInstance.address);
-  poolInstance.setGovernor(governorInstance.address);
+  await tokenInstance.transferOwnership(poolInstance.address);
+  await poolInstance.setGovernor(governorInstance.address);
+
+  // Replace with actual super admin address
+  await poolInstance.setSuperAdmin("0x0000000000000000000000000000000000000000");
+  await tokenInstance.setSuperAdmin("0x0000000000000000000000000000000000000000");
 };
