@@ -163,6 +163,8 @@ contract Pool is OwnableWithSuperAdmin, IPool {
         require(pendingAmount > 0, "Nothing to unstake");
 
         _pendingBalance = _pendingBalance.sub(pendingAmount);
+        _slotPendingBalance = _slotPendingBalance.sub(pendingAmount);
+        
         _stakerBalances[msg.sender] = _stakerBalances[msg.sender].sub(pendingAmount);
 
         _slots[_slotCurrent][msg.sender] = 0;
