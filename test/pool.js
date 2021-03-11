@@ -91,6 +91,10 @@ contract("Pool", async accounts => {
         let pendingBalance = await pool.pendingBalanceOf.call(accounts[0]);
         assert.equal(pendingBalance.toString(), C.BN_MIN_STAKE);
 
+        // Check unstakable balance after first stake
+        let unstakableBalance = await pool.unstakableBalance.call(accounts[0]);
+        assert.equal(unstakableBalance.toString(), C.BN_MIN_STAKE);
+
         // Save ETH balance to check if proper amount was returned
         let balanceBefore = new BN(await web3.eth.getBalance(accounts[0]));
 
@@ -106,10 +110,23 @@ contract("Pool", async accounts => {
         pendingBalance = await pool.pendingBalanceOf.call(accounts[0]);
         assert.equal(pendingBalance, 0);
 
+        // Unstakable balance should become zero
+        unstakableBalance = await pool.unstakableBalance.call(accounts[0]);
+        assert.equal(unstakableBalance.toString(), 0);
+
         // And stake amount should return to ETH balance
         let balanceAfter = new BN(await web3.eth.getBalance(accounts[0]));
         let ethDiff = balanceAfter.sub(balanceBefore).add(await utils.getTransactionFee(tx));
         assert.equal(ethDiff.toString(), C.BN_MIN_STAKE);
+
+        // Second stake and check pending balance
+        await pool.stake({value: C.BN_ALMOST_BEACON, from: accounts[1]});
+        pendingBalance = await pool.pendingBalanceOf.call(accounts[1]);
+        assert.equal(pendingBalance.toString(), C.BN_ALMOST_BEACON);
+
+        // Check unstakable balance after second stake
+        unstakableBalance = await pool.unstakableBalance.call(accounts[1]);
+        assert.equal(unstakableBalance.toString(), C.BN_ALMOST_BEACON);
     });
 
     it("fail: `unstake`", async () => {
