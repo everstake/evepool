@@ -126,6 +126,8 @@ contract Pool is OwnableWithSuperAdmin, IPool {
         _stakerSlots[staker].add(_slotCurrent);
 
         _slotPendingBalance = _slotPendingBalance.add(value);
+
+        // ">=" is just to be safe and the difference can be ignored
         if (_slotPendingBalance >= BEACON_AMOUNT) {
             _slotCurrent += 1;
             _slotPendingBalance = 0;
