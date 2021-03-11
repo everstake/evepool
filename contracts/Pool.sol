@@ -106,9 +106,10 @@ contract Pool is OwnableWithSuperAdmin, IPool {
     }
 
     function _stake(address staker, uint256 value) private {
-        if (value == 0)
+        if (value == 0) {
             return;
-        
+        }
+
         // Split large stakes into several slots
         if (_slotPendingBalance.add(value) > BEACON_AMOUNT) {
             uint256 step1 = BEACON_AMOUNT.sub(_slotPendingBalance);
@@ -125,7 +126,9 @@ contract Pool is OwnableWithSuperAdmin, IPool {
         _stakerSlots[staker].add(_slotCurrent);
 
         _slotPendingBalance = _slotPendingBalance.add(value);
-        if (_slotPendingBalance == BEACON_AMOUNT) {
+
+        // ">=" is just to be safe and the difference can be ignored
+        if (_slotPendingBalance >= BEACON_AMOUNT) {
             _slotCurrent += 1;
             _slotPendingBalance = 0;
         }
@@ -168,6 +171,7 @@ contract Pool is OwnableWithSuperAdmin, IPool {
         _stakerBalances[msg.sender] = _stakerBalances[msg.sender].sub(pendingAmount);
 
         _slots[_slotCurrent][msg.sender] = 0;
+        _stakerSlots[msg.sender].remove(_slotCurrent);
 
         bool success = msg.sender.send(pendingAmount);
         require(success, "Transfer failed");
@@ -278,6 +282,6 @@ contract Pool is OwnableWithSuperAdmin, IPool {
     }
 
     function _calculateFee(uint256 amount) private view returns (uint256) {
-        return (amount * _poolFee) / FEE_DENOMINATOR;
+        return amount.mul(_poolFee).div(FEE_DENOMINATOR);
     }
 }
