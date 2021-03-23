@@ -169,7 +169,7 @@ contract Pool is OwnableWithSuperAdmin, IPool {
 
         _slots[_slotCurrent][msg.sender] = 0;
 
-        bool success = msg.sender.send(pendingAmount);
+        bool success = _safeEthSend(msg.sender, pendingAmount);
         require(success, "Transfer failed");
         emit StakeCanceled(msg.sender, pendingAmount);
     }
@@ -279,5 +279,10 @@ contract Pool is OwnableWithSuperAdmin, IPool {
 
     function _calculateFee(uint256 amount) private view returns (uint256) {
         return (amount * _poolFee) / FEE_DENOMINATOR;
+    }
+
+    function _safeEthSend(address to, uint256 amount) internal {
+        (bool success, ) = to.call{ value: amount }("");
+        require(success, "eth withdraw");
     }
 }
