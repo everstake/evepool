@@ -11,7 +11,7 @@
 
 pragma solidity >=0.6.0 <0.8.0;
 
-import "./interfaces/IDepositContract.sol";
+import "../interfaces/IDepositContract.sol";
 
 // Based on official specification in https://eips.ethereum.org/EIPS/eip-165
 interface ERC165 {
@@ -104,7 +104,8 @@ contract DepositContract is IDepositContract, ERC165 {
         ));
 
         // Verify computed and expected deposit data roots match
-        require(node == deposit_data_root, "DepositContract: reconstructed DepositData does not match supplied deposit_data_root");
+        require(node == deposit_data_root, 
+            "DepositContract: reconstructed DepositData does not match supplied deposit_data_root");
 
         // Avoid overflowing the Merkle tree (and prevent edge case in computing `branch`)
         require(deposit_count < MAX_DEPOSIT_COUNT, "DepositContract: merkle tree full");

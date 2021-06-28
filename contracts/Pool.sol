@@ -173,8 +173,7 @@ contract Pool is OwnableWithSuperAdmin, IPool {
         _slots[_slotCurrent][msg.sender] = 0;
         _stakerSlots[msg.sender].remove(_slotCurrent);
 
-        bool success = _safeEthSend(msg.sender, pendingAmount);
-        require(success, "Transfer failed");
+        _safeEthSend(msg.sender, pendingAmount);
         emit StakeCanceled(msg.sender, pendingAmount);
     }
 
@@ -191,7 +190,8 @@ contract Pool is OwnableWithSuperAdmin, IPool {
                 _slots[slot][msg.sender] = 0;
                 _stakerSlots[msg.sender].remove(slot);
 
-                emit TokensClaimed(msg.sender, slotAmount, _validators[slot - 1]); // -1 because slots are 1-based and _validators array is 0-based
+                // -1 because slots are 1-based and _validators array is 0-based
+                emit TokensClaimed(msg.sender, slotAmount, _validators[slot - 1]); 
             }
         }
         if (mintAmount != 0) {
