@@ -34,6 +34,8 @@ module.exports = async function(deployer) {
   await tokenInstance.transferOwnership(poolInstance.address);
   await poolInstance.setGovernor(governorInstance.address);
 
-  await poolInstance.setSuperAdmin(process.env.POOL_ADMIN_ADDRESS);
-  await tokenInstance.setSuperAdmin(process.env.TOKEN_ADMIN_ADDRESS);
+  if (isMainnet) {
+    await poolInstance.setSuperAdmin(process.env.POOL_ADMIN_ADDRESS);
+    await tokenInstance.setSuperAdmin(process.env.TOKEN_ADMIN_ADDRESS);
+  }
 };
